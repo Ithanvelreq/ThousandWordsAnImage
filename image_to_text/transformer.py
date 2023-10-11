@@ -13,7 +13,7 @@ from einops.layers.torch import Rearrange, Reduce
 
 
 class PatchEmbedding(nn.Module):
-    def __init__(self, in_channels: int = 3, patch_size: int = 16, emb_size: int = 768):
+    def __init__(self, in_channels: int = 3, patch_size: int = 16, emb_size: int = 768, img_size: int = 224):
         self.patch_size = patch_size
         super().__init__()
         self.projection = nn.Sequential(
@@ -125,7 +125,7 @@ class ViT(nn.Sequential):
                 emb_size: int = 768,
                 img_size: int = 224,
                 depth: int = 12,
-                n_classes: int = 1000,
+                n_classes: int = 2,
                 **kwargs):
         super().__init__(
             PatchEmbedding(in_channels, patch_size, emb_size, img_size),
