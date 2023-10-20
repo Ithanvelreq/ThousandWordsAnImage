@@ -13,7 +13,7 @@ from einops.layers.torch import Rearrange, Reduce
 
 
 class PatchEmbedding(nn.Module):
-    def __init__(self, in_channels: int = 3, patch_size: int = 16, emb_size: int = 768, img_size: int = 224):
+    def __init__(self, in_channels: int = 3, patch_size: int = 16, emb_size: int = 768, img_size = 32):
         self.patch_size = patch_size
         super().__init__()
         self.projection = nn.Sequential(
@@ -29,7 +29,7 @@ class PatchEmbedding(nn.Module):
         x = self.projection(x)
         cls_tokens = repeat(self.cls_token, '() n e -> b n e', b=b)
         x = torch.cat([cls_tokens, x], dim=1)  # prepending the cls token
-        x += self.positions
+        x += self.positions.unsqueeze(0).repeat(x.size(0), 1, 1)
         return x
 
 
@@ -106,12 +106,12 @@ class TransformerEncoderBlock(nn.Sequential):
 
 
 class TransformerEncoder(nn.Sequential):
-    def __init__(self, depth: int = 12, **kwargs):
+    def __init__(self, depth: int = 6, **kwargs): # initially 12
         super().__init__(*[TransformerEncoderBlock(**kwargs) for _ in range(depth)])
 
 
 class ClassificationHead(nn.Sequential):
-    def __init__(self, emb_size: int = 768, n_classes: int = 1000):
+    def __init__(self, emb_size: int = 768, n_classes: int = 10):
         super().__init__(
             Reduce('b n e -> b e', reduction='mean'),
             nn.LayerNorm(emb_size),
@@ -123,9 +123,9 @@ class ViT(nn.Sequential):
                 in_channels: int = 3,
                 patch_size: int = 16,
                 emb_size: int = 768,
-                img_size: int = 224,
-                depth: int = 12,
-                n_classes: int = 2,
+                img_size: int = 32,
+                depth: int = 6,
+                n_classes: int = 10,
                 **kwargs):
         super().__init__(
             PatchEmbedding(in_channels, patch_size, emb_size, img_size),
