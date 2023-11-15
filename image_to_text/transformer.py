@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 from PIL import Image
 
 import torch
@@ -7,9 +6,10 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 from pytorch_model_summary import summary
 from torchvision.transforms import Compose, Resize, ToTensor
-
+from torchvision.datasets import CocoCaptions
 from einops import rearrange, reduce, repeat
 from einops.layers.torch import Rearrange, Reduce
+from transformers import GPT2Model, GPT2Tokenizer
 
 
 class PatchEmbedding(nn.Module):
@@ -110,25 +110,57 @@ class TransformerEncoder(nn.Sequential):
         super().__init__(*[TransformerEncoderBlock(**kwargs) for _ in range(depth)])
 
 
-class ClassificationHead(nn.Sequential):
-    def __init__(self, emb_size: int = 768, n_classes: int = 10):
-        super().__init__(
-            Reduce('b n e -> b e', reduction='mean'),
-            nn.LayerNorm(emb_size),
-            nn.Linear(emb_size, n_classes))
-
-
-class ViT(nn.Sequential):
+class ViTEncoder(nn.Sequential):
     def __init__(self,
-                in_channels: int = 3,
-                patch_size: int = 16,
-                emb_size: int = 768,
-                img_size: int = 32,
-                depth: int = 6,
-                n_classes: int = 10,
+                in_channels: int,
+                patch_size: int,
+                emb_size: int,
+                img_size: int,
+                depth: int,
                 **kwargs):
         super().__init__(
             PatchEmbedding(in_channels, patch_size, emb_size, img_size),
             TransformerEncoder(depth, emb_size=emb_size, **kwargs),
-            ClassificationHead(emb_size, n_classes)
         )
+
+
+class GPT2Decoder(nn.Module):
+    def __init__(self, model_name: str, max_length: int):
+        super(GPT2Decoder, self).__init__()
+        self.gpt2_model = GPT2Model.from_pretrained(model_name)
+        self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+        self.max_length = max_length
+
+    def forward(self, image_features, captions):
+        # Assuming captions is a tensor of tokenized captions
+        # You may need to tokenize the captions using the GPT-2 tokenizer
+        # Combine image features and captions
+        combined_input = torch.cat([image_features, captions], dim=1)
+
+        # Use GPT-2 model to generate captions
+        gpt2_output = self.gpt2_model(combined_input)
+
+        # You may need to extract the relevant output for training and decoding
+
+        return gpt2_output
+
+
+class ImageCaptioningModel(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 patch_size: int = 16,
+                 emb_size: int = 768,
+                 img_size: int = 32,
+                 depth: int = 6,
+                 gpt2_model_name: str = 'gpt2',
+                 caption_max_length: int = 50,
+                 **kwargs):
+        super(ImageCaptioningModel, self).__init__()
+        self.vit_encoder = ViTEncoder(in_channels, patch_size, emb_size, img_size, depth, **kwargs)
+        self.gpt2_decoder = GPT2Decoder(gpt2_model_name, caption_max_length)
+
+    def forward(self, images, captions):
+        image_features = self.vit_encoder(images)
+        generated_captions = self.gpt2_decoder(image_features, captions)
+
+        return generated_captions

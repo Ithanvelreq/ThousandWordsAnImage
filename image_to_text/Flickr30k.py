@@ -23,21 +23,22 @@ class Flick30k(Dataset):
         self.test = False
         self.eager = eager
 
-        for image_fn in glob.glob(path_to_dataset+"/*"):
-            if not "readme" in image_fn:
-                self.image_id_list.append(image_fn.split("\\")[-1].split(".")[0])
         with open(path_to_labels, encoding="utf8") as f:
-            reader = csv.reader(f, delimiter="|")
-            labels = list(reader)
+            labels = f.readlines()
+
+        labels = [label.strip() for label in labels]
+
         first = True
         for label in labels:
-            if not first and self.label_dict.get(label[0].split(".")[0], None) is not None:
-                captions = self.label_dict.get(label[0].split(".")[0], None)
-                captions.append(label[1:])
+            label = label.replace('"', '')
+            if not first and self.label_dict.get(label.split(".")[0], None) is not None:
+                captions = self.label_dict.get(label.split(".")[0], None)
+                captions.append(label.split(",")[-1])
             elif not first:
-                captions = [label[1:]]
-                self.label_dict[label[0].split(".")[0]] = captions
+                captions = [label.split(",")[-1]]
+                self.label_dict[label.split(".")[0]] = captions
             first = False
+        self.image_id_list = list(self.label_dict.keys())
         self.split_train_val()
         print("Done loading!")
 
@@ -60,7 +61,8 @@ class Flick30k(Dataset):
         return images[0], targets[0]
 
     def split_train_val(self, val_ratio=0.1, test_ratio=0.1, shuffle=True):
-        if shuffle : random.shuffle(self.image_id_list)
+        if shuffle:
+            random.shuffle(self.image_id_list)
 
         val_size = int(len(self) * val_ratio)
         test_size = int(len(self) * test_ratio)
@@ -87,4 +89,4 @@ class Flick30k(Dataset):
 
 
 if __name__ == '__main__':
-    x = Flick30k('cuda', "./Dataset/flickr30k-images", "./Dataset/labels.csv")
+    x = Flick30k('cuda', "./flickr/Images", "./flickr/captions.txt")
