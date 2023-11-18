@@ -1,16 +1,18 @@
 import glob
+from PIL import Image
 import random
-
+import os
 import torch
 from torch.utils.data import Dataset
 import torch.nn as nn
 import numpy as np
 import csv
+from torchvision import io, transforms
 
 
 class Flick30k(Dataset):
 
-    def __init__(self, dev, path_to_dataset, path_to_labels, eager=False):
+    def __init__(self, dev, path_to_dataset, path_to_labels, img_size=(224,224)):
         self.device = dev
         self.path_to_dataset = path_to_dataset
         self.image_id_list = []
@@ -21,7 +23,18 @@ class Flick30k(Dataset):
         self.train = True
         self.val = False
         self.test = False
-        self.eager = eager
+        self.transforms = transforms.Compose(
+            [
+                transforms.Resize(img_size),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=0.5,
+                    std=0.5
+                ),
+                transforms.PILToTensor(),
+                transforms.ToTensor()
+            ]
+        )
 
         with open(path_to_labels, encoding="utf8") as f:
             labels = f.readlines()
@@ -53,12 +66,18 @@ class Flick30k(Dataset):
             selected_image_id = self.val_image_indices[idx]
         else:
             selected_image_id = self.test_image_indices[idx]
-        targets = torch.randn(1, 128)
-        targets = targets.to(self.device)
-        cp = self.real_class_probabilities[idx][None, :].to(self.device)
-        targets = torch.cat([targets, cp], 1).float()
-        images = self(targets, self.default_mode, self.default_normalization, self.default_noise_interval)
-        return images[0], targets[0]
+        label_list = self.label_dict.get(selected_image_id, None)
+        label = label_list[random.randint(0, len(label_list))]
+
+        try:
+            img_path = os.path.join(self.path_to_dataset , selected_image_id + ".jpg")
+            img = Image.open(img_path).convert("RGB")
+        except Exception as e:
+            print(e)
+            img_path = os.path.join(self.path_to_dataset, "default.jpg")
+            img = Image.open(img_path).convert("RGB")
+        img = self.transform(img)
+        return img, label
 
     def split_train_val(self, val_ratio=0.1, test_ratio=0.1, shuffle=True):
         if shuffle:
@@ -90,3 +109,6 @@ class Flick30k(Dataset):
 
 if __name__ == '__main__':
     x = Flick30k('cuda', "./flickr/Images", "./flickr/captions.txt")
+    for(a, b) in x:
+        print(a)
+        print(b)
