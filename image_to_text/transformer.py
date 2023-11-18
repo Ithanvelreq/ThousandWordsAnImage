@@ -12,7 +12,7 @@ from transformers import GPT2Model, GPT2Tokenizer
 
 
 class PatchEmbedding(nn.Module):
-    def __init__(self, in_channels: int = 3, patch_size: int = 16, emb_size: int = 768, img_size = 32):
+    def __init__(self, in_channels: int = 3, patch_size: int = 16, emb_size: int = 768, img_size=224):
         self.patch_size = patch_size
         super().__init__()
         self.projection = nn.Sequential(
@@ -138,7 +138,7 @@ class ImageCaptioningModel(nn.Module):
                  in_channels: int = 3,
                  patch_size: int = 16,
                  emb_size: int = 768,
-                 img_size: int = 32,
+                 img_size: int = 224,
                  depth: int = 6,
                  gpt2_model_name: str = 'gpt2',
                  **kwargs):
@@ -146,8 +146,8 @@ class ImageCaptioningModel(nn.Module):
         self.vit_encoder = ViTEncoder(in_channels, patch_size, emb_size, img_size, depth, **kwargs)
         self.gpt2_decoder = GPT2Decoder(gpt2_model_name)
 
-    def forward(self, images, captions):
+    def forward(self, images):
         image_features = self.vit_encoder(images)
-        generated_captions = self.gpt2_decoder(image_features, captions)
+        generated_captions = self.gpt2_decoder(image_features)
 
         return generated_captions
