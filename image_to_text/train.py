@@ -10,6 +10,7 @@ from torchvision.transforms import Compose, Resize, ToTensor
 from transformer import ImageCaptioningModel
 from Flickr30k import Flick30k
 from torch.utils.data import DataLoader
+from transformers import GPT2Tokenizer
 
 from data import Cifar, IMBALANCECIFAR10
 
@@ -59,8 +60,7 @@ def to_tensor(img):
 
 def train(dataset, epoch=40, model=ImageCaptioningModel()):
     model.cuda()
-    num_class = 10
-    cm = torch.zeros(num_class, num_class)
+    # num_class = 10
 
     losses, acc = np.zeros(epoch), np.zeros(epoch)
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9)
@@ -74,8 +74,9 @@ def train(dataset, epoch=40, model=ImageCaptioningModel()):
                 data = data.cuda()
                 target = target.cuda()
 
+            encoded_caption = GPT2Tokenizer.encode(target)
             out = model(data)
-            batch_acc.append(accuracy(out, target))
+            batch_acc.append(accuracy(out, encoded_caption))
 
             loss = ce_loss(out, target)
             batch_loss.append(loss.item())
@@ -93,7 +94,8 @@ def train(dataset, epoch=40, model=ImageCaptioningModel()):
     return losses, acc
 
 
-losses, acc = train(train_loader)
+# losses, acc = train(train_loader)
+losses, acc = train(x.train_image_indices)
 
 plt.plot(acc)
 plt.plot(losses)

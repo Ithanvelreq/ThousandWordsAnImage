@@ -6,7 +6,6 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 from pytorch_model_summary import summary
 from torchvision.transforms import Compose, Resize, ToTensor
-from torchvision.datasets import CocoCaptions
 from einops import rearrange, reduce, repeat
 from einops.layers.torch import Rearrange, Reduce
 from transformers import GPT2Model, GPT2Tokenizer
@@ -125,24 +124,13 @@ class ViTEncoder(nn.Sequential):
 
 
 class GPT2Decoder(nn.Module):
-    def __init__(self, model_name: str, max_length: int):
+    def __init__(self, model_name: str):
         super(GPT2Decoder, self).__init__()
-        self.gpt2_model = GPT2Model.from_pretrained(model_name)
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-        self.max_length = max_length
 
-    def forward(self, image_features, captions):
-        # Assuming captions is a tensor of tokenized captions
-        # You may need to tokenize the captions using the GPT-2 tokenizer
-        # Combine image features and captions
-        combined_input = torch.cat([image_features, captions], dim=1)
-
-        # Use GPT-2 model to generate captions
-        gpt2_output = self.gpt2_model(combined_input)
-
-        # You may need to extract the relevant output for training and decoding
-
-        return gpt2_output
+    def forward(self, encoded_captions):
+        decoded_caption = self.tokenizer.decode(encoded_captions[0], skip_special_tokens=True)
+        return decoded_caption
 
 
 class ImageCaptioningModel(nn.Module):
@@ -153,11 +141,10 @@ class ImageCaptioningModel(nn.Module):
                  img_size: int = 32,
                  depth: int = 6,
                  gpt2_model_name: str = 'gpt2',
-                 caption_max_length: int = 50,
                  **kwargs):
         super(ImageCaptioningModel, self).__init__()
         self.vit_encoder = ViTEncoder(in_channels, patch_size, emb_size, img_size, depth, **kwargs)
-        self.gpt2_decoder = GPT2Decoder(gpt2_model_name, caption_max_length)
+        self.gpt2_decoder = GPT2Decoder(gpt2_model_name)
 
     def forward(self, images, captions):
         image_features = self.vit_encoder(images)
