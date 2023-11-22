@@ -37,7 +37,6 @@ def train(train_data, epoch=40, model=ImageCaptioningModel()):
     losses, acc = np.zeros(epoch), np.zeros(epoch)
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9)
     ce_loss = nn.CrossEntropyLoss()
-    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 
     for ep in range(epoch):
         batch_loss, batch_acc = [], []
@@ -45,10 +44,10 @@ def train(train_data, epoch=40, model=ImageCaptioningModel()):
         for idx, (data, target) in enumerate(train_data):
             if torch.cuda.is_available():
                 data = data.cuda()
+                target = target.cuda()
 
-            encoded_caption = tokenizer.encode(target, return_tensors='pt')
             out = model(data)
-            batch_acc.append(accuracy(out, encoded_caption))
+            batch_acc.append(accuracy(out, target))
 
             loss = ce_loss(out, target)
             batch_loss.append(loss.item())
@@ -67,7 +66,8 @@ def train(train_data, epoch=40, model=ImageCaptioningModel()):
 
 
 if __name__ == '__main__':
-    train_dataset = Flick30k('cuda', "./flickr/Images", "./flickr/labels.csv")
+    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+    train_dataset = Flick30k('cuda', "./flickr/Images", "./flickr/labels.csv", tokenizer)
     val_dataset, test_dataset = train_dataset.split_train_val()
 
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)

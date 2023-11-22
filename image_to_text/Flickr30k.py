@@ -1,4 +1,5 @@
 import glob
+from transformers import GPT2Tokenizer
 from PIL import Image
 import random
 import os
@@ -13,9 +14,12 @@ from torchvision import io, transforms
 
 class Flick30k(Dataset):
 
-    def __init__(self, dev, path_to_dataset, path_to_labels, img_size=(224, 224), df=None):
+    def __init__(self, dev, path_to_dataset, path_to_labels, tokenizer, img_size=(224, 224), df=None):
         self.device = dev
         self.path_to_dataset = path_to_dataset
+        self.max_length = 50
+        self.tokenizer = tokenizer
+        self.tokenizer.pad_token = tokenizer.unk_token
         self.transform = transforms.Compose(
             [
                 transforms.Resize(img_size),
@@ -48,7 +52,8 @@ class Flick30k(Dataset):
             img_path = os.path.join(self.path_to_dataset, "default.jpg")
             img = Image.open(img_path).convert("RGB")
         img = self.transform(img)
-        return img, caption
+        caption = self.tokenizer(caption, padding='max_length', max_length=self.max_length, ).input_ids
+        return img, torch.Tensor(caption)
 
     def split_train_val(self, val_ratio=0.1, test_ratio=0.1):
         val_size = int(len(self) * val_ratio)
@@ -58,14 +63,15 @@ class Flick30k(Dataset):
         df_val = self.df.iloc[test_size:test_size+val_size]
         self.df = self.df.iloc[test_size+val_size:]
 
-        dataset_val = Flick30k(self.device, self.path_to_dataset, self.path_to_dataset, df=df_val)
-        dataset_test = Flick30k(self.device, self.path_to_dataset, self.path_to_dataset, df=df_test)
+        dataset_val = Flick30k(self.device, self.path_to_dataset, self.path_to_dataset, self.tokenizer, df=df_val)
+        dataset_test = Flick30k(self.device, self.path_to_dataset, self.path_to_dataset, self.tokenizer, df=df_test)
         return dataset_val, dataset_test
 
 
 
 if __name__ == '__main__':
-    x = Flick30k('cuda', "./flickr/Images", "./flickr/labels.csv")
+    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+    x = Flick30k('cuda', "./flickr/Images", "./flickr/labels.csv", tokenizer)
     _, a = x.split_train_val()
     for(a, b) in x:
         print(a)
