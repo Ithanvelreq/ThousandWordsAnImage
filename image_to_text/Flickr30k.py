@@ -19,7 +19,6 @@ class Flick30k(Dataset):
         self.path_to_dataset = path_to_dataset
         self.max_length = 50
         self.tokenizer = tokenizer
-        self.tokenizer.pad_token = tokenizer.unk_token
         self.transform = transforms.Compose(
             [
                 transforms.Resize(img_size),
@@ -52,8 +51,9 @@ class Flick30k(Dataset):
             img_path = os.path.join(self.path_to_dataset, "default.jpg")
             img = Image.open(img_path).convert("RGB")
         img = self.transform(img)
-        caption = self.tokenizer(caption, padding='max_length', max_length=self.max_length, ).input_ids
-        return img, torch.Tensor(caption)
+        caption = self.tokenizer(caption, padding='max_length', max_length=self.max_length).input_ids
+        # it would seem that not all captions end up being the same length. Some have length 50 and others 62
+        return img, torch.Tensor(caption).long()
 
     def split_train_val(self, val_ratio=0.1, test_ratio=0.1):
         val_size = int(len(self) * val_ratio)
