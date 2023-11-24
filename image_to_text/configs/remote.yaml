@@ -1,0 +1,12 @@
+Train:
+  epochs: 2
+  batch_size: 2
+  save_rate: 20
+  learning_rate: 0.00001
+  path_to_dataset: "../../drive/MyDrive/ThousandWordsAnImage/data/Images"
+  path_to_labels: "../../drive/MyDrive/ThousandWordsAnImage/data/labels.csv"
+  ref_image_path: "../../drive/MyDrive/ThousandWordsAnImage/data/ref-image.jpg"
+
+network:
+  model: Encoder
+  tokenizer: gpt2
