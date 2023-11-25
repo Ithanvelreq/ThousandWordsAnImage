@@ -52,6 +52,8 @@ class Flick30k(Dataset):
             img = Image.open(img_path).convert("RGB")
         img = self.transform(img)
         caption = self.tokenizer(caption, padding='max_length', max_length=self.max_length).input_ids
+        if len(caption) > self.max_length:
+            caption = caption[:self.max_length]
         # it would seem that not all captions end up being the same length. Some have length 50 and others 62
         return img, torch.Tensor(caption).long()
 
