@@ -14,7 +14,7 @@ from torchvision import io, transforms
 
 class Flick30k(Dataset):
 
-    def __init__(self, dev, path_to_dataset, path_to_labels, tokenizer, img_size=(224, 224), df=None):
+    def __init__(self, dev, path_to_dataset, path_to_labels, tokenizer, img_size=(224, 224), df=None, default_caption=None):
         self.device = dev
         self.path_to_dataset = path_to_dataset
         self.max_length = 50
@@ -35,6 +35,10 @@ class Flick30k(Dataset):
             self.df = pd.read_csv(path_to_labels, delimiter="|")
             self.df.rename(columns={" comment_number": "comment_number", " comment": "comment"}, inplace=True)
         self.df = self.df.sample(frac=1).reset_index(drop=True)
+        if default_caption is None:
+            self.default_caption = "We are unable to caption this image."
+        else:
+            self.default_caption = default_caption
 
     def __len__(self):
         return len(self.df)
@@ -51,10 +55,13 @@ class Flick30k(Dataset):
             img_path = os.path.join(self.path_to_dataset, "default.jpg")
             img = Image.open(img_path).convert("RGB")
         img = self.transform(img)
-        caption = self.tokenizer(caption, padding='max_length', max_length=self.max_length).input_ids
+        try:
+            caption = self.tokenizer(caption, padding='max_length', max_length=self.max_length).input_ids
+        except Exception as e:
+            print(e)
+            caption = self.tokenizer(self.default_caption, padding='max_length', max_length=self.max_length).input_ids
         if len(caption) > self.max_length:
             caption = caption[:self.max_length]
-        # it would seem that not all captions end up being the same length. Some have length 50 and others 62
         return img, torch.Tensor(caption).long()
 
     def split_train_val(self, val_ratio=0.1, test_ratio=0.1):
