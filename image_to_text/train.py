@@ -166,6 +166,7 @@ def main():
                 print("Model saved successfully")
         # test(test_dataloader, model, criterion)
     except KeyboardInterrupt:
+        save_plot("./results/training_curve.png", losses_list)
         if not os.path.exists('./checkpoints'):
             os.makedirs('./checkpoints')
         torch.save(model.state_dict(), './checkpoints/' +
