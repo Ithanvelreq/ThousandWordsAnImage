@@ -8,5 +8,5 @@ Train:
   ref_image_path: "./flickr/ref_image.jpg"
 
 network:
-  model: Encoder
+  model: ViT
   tokenizer: gpt2

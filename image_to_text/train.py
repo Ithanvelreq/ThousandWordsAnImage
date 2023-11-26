@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from transformers import GPT2Tokenizer
 from utils import AverageMeter, save_plot, DummyModel, plot_sanity_check_image
 
-parser = argparse.ArgumentParser(description='GanGan style encoder training loop')
+parser = argparse.ArgumentParser(description='Visual Transformer for Image Captioning training loop')
 parser.add_argument('--config', default='./configs/test.yaml')
 BATCH_SIZE = 64
 losses_list = []
@@ -40,7 +40,6 @@ def to_tensor(img):
 
 
 def train(epoch, train_data, model, optimizer):
-
     iter_time = AverageMeter()
     losses = AverageMeter()
     model.train()
@@ -52,12 +51,13 @@ def train(epoch, train_data, model, optimizer):
             target = target.cuda()
 
         pred_caption = model(pixel_values=data, labels=target)
-        loss = pred_caption.loss
+        loss = pred_caption["loss"]
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        losses.update(loss, train_data.batch_size)
+        losses.update(loss.item(), train_data.batch_size)
         # We still need to compute accuracy.
         iter_time.update(time.time() - start)
         if idx % 10 == 0:
@@ -134,9 +134,7 @@ def main():
     if args.model == 'DummyModel':
         model = DummyModel()
     elif args.model == 'ViT':
-        # model = Encoder(in_channels, output_size)
-        model = None
-        pass
+        model = ImageCaptioningModel()
     else:
         model = get_default_model(tokenizer)
     print(model)

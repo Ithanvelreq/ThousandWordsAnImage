@@ -8,7 +8,7 @@ from pytorch_model_summary import summary
 from torchvision.transforms import Compose, Resize, ToTensor
 from einops import rearrange, reduce, repeat
 from einops.layers.torch import Rearrange, Reduce
-from transformers import GPT2Model, GPT2Tokenizer
+from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config
 
 
 class PatchEmbedding(nn.Module):
@@ -105,7 +105,7 @@ class TransformerEncoderBlock(nn.Sequential):
 
 
 class TransformerEncoder(nn.Sequential):
-    def __init__(self, depth: int = 6, **kwargs): # initially 12
+    def __init__(self, depth: int = 12, **kwargs): # initially 12
         super().__init__(*[TransformerEncoderBlock(**kwargs) for _ in range(depth)])
 
 
@@ -124,14 +124,30 @@ class ViTEncoder(nn.Sequential):
 
 
 class GPT2Decoder(nn.Module):
-    def __init__(self, model_name: str):
+    def __init__(self, max_length, temperature):
         super(GPT2Decoder, self).__init__()
-        self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+        self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+        self.vocab_size = self.tokenizer.vocab_size
+        self.config = GPT2Config.from_pretrained('gpt2', add_cross_attention=True)
+        self.model = GPT2LMHeadModel.from_pretrained('gpt2', config=self.config)
+        self.max_length = max_length
+        self.temperature = temperature
 
-    def forward(self, encoded_captions):
-        decoded_caption = self.tokenizer.decode(encoded_captions[0], skip_special_tokens=True)
-        return decoded_caption
+    def forward(self, encoder_output, caption):
+        logits = self.model(input_ids=caption, encoder_hidden_states=encoder_output).logits
+        loss = None
 
+        if caption is not None:
+            loss_fct = torch.nn.CrossEntropyLoss()
+            loss = loss_fct(logits.reshape(-1, self.vocab_size), caption.reshape(-1))
+
+        return {"logits": logits, "loss": loss}
+
+    def generate(self, encoder_output, max_new_tokens):
+        input_ids = torch.tensor([[self.tokenizer.bos_token_id]]).cuda()
+        return self.model.generate(input_ids,
+                                   max_new_tokens=max_new_tokens,
+                                   encoder_hidden_states=encoder_output)
 
 class ImageCaptioningModel(nn.Module):
     def __init__(self,
@@ -139,15 +155,22 @@ class ImageCaptioningModel(nn.Module):
                  patch_size: int = 16,
                  emb_size: int = 768,
                  img_size: int = 224,
-                 depth: int = 6,
-                 gpt2_model_name: str = 'gpt2',
+                 depth: int = 12,
+                 max_length: int = 50,
+                 temperature: float = 1.0,
+                 device: str = "cuda",
                  **kwargs):
         super(ImageCaptioningModel, self).__init__()
+        self.device = device
         self.vit_encoder = ViTEncoder(in_channels, patch_size, emb_size, img_size, depth, **kwargs)
-        self.gpt2_decoder = GPT2Decoder(gpt2_model_name)
+        self.torch_decoder = GPT2Decoder(max_length, temperature)
 
-    def forward(self, images):
-        image_features = self.vit_encoder(images)
-        generated_captions = self.gpt2_decoder(image_features)
+    def forward(self, pixel_values, labels):
+        image_features = self.vit_encoder(pixel_values)
+        generated_captions = self.torch_decoder(image_features, labels)
 
         return generated_captions
+
+    def generate(self, pixel_values, max_new_tokens):
+        image_features = self.vit_encoder(pixel_values)
+        return self.torch_decoder.generate(image_features, max_new_tokens=max_new_tokens)
