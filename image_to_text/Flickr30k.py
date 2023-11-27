@@ -79,7 +79,7 @@ class Flick30k(Dataset):
 
 
 if __name__ == '__main__':
-    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+    tokenizer = GPT2Tokenizer.from_pretrained('gpt2', padding_side="left")
     x = Flick30k('cuda', "./flickr/Images", "./flickr/labels.csv", tokenizer)
     _, a = x.split_train_val()
     for(a, b) in x:

@@ -1,6 +1,6 @@
 Train:
-  epochs: 2
-  batch_size: 2
+  epochs: 20
+  batch_size: 8
   save_rate: 20
   learning_rate: 0.00001
   path_to_dataset: "./flickr/Images"
@@ -8,5 +8,5 @@ Train:
   ref_image_path: "./flickr/ref_image.jpg"
 
 network:
-  model: ViT
+  model: default
   tokenizer: gpt2

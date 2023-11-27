@@ -51,7 +51,8 @@ def train(epoch, train_data, model, optimizer):
             target = target.cuda()
 
         pred_caption = model(pixel_values=data, labels=target)
-        loss = pred_caption["loss"]
+        # loss = pred_caption["loss"]
+        loss = pred_caption.loss
 
         optimizer.zero_grad()
         loss.backward()

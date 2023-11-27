@@ -126,7 +126,7 @@ class ViTEncoder(nn.Sequential):
 class GPT2Decoder(nn.Module):
     def __init__(self, max_length, temperature):
         super(GPT2Decoder, self).__init__()
-        self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+        self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2', padding_side="left")
         self.vocab_size = self.tokenizer.vocab_size
         self.config = GPT2Config.from_pretrained('gpt2', add_cross_attention=True)
         self.model = GPT2LMHeadModel.from_pretrained('gpt2', config=self.config)
@@ -145,9 +145,17 @@ class GPT2Decoder(nn.Module):
 
     def generate(self, encoder_output, max_new_tokens):
         input_ids = torch.tensor([[self.tokenizer.bos_token_id]]).cuda()
-        return self.model.generate(input_ids,
-                                   max_new_tokens=max_new_tokens,
-                                   encoder_hidden_states=encoder_output)
+
+        for i in range(max_new_tokens):
+            logits = self.model(input_ids, encoder_hidden_states=encoder_output).logits
+            logits = logits[:, -1, :] / self.temperature
+
+            next_token_probs = torch.nn.functional.softmax(logits, dim=-1)
+            next_tokens = torch.multinomial(next_token_probs, 1).squeeze(-1)
+            input_ids = torch.cat([input_ids, next_tokens.unsqueeze(1)], dim=1)
+
+        generated_text = self.tokenizer.decode(input_ids[:, 1:].squeeze(), skip_special_tokens=True)
+        return generated_text
 
 class ImageCaptioningModel(nn.Module):
     def __init__(self,

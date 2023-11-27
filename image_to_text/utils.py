@@ -36,4 +36,5 @@ def plot_sanity_check_image(epoch, ref_image_path, transformation, tokenizer, mo
     img = transformation(img).unsqueeze(0).to(model.device)
     out_caption = model.generate(img, max_new_tokens=50)
     caption = tokenizer.decode(out_caption[0])
-    print(f"After {epoch} epochs, the model says: f{caption}")
+    # caption = model.generate(img, max_new_tokens=20)
+    print(f"After {epoch} epochs, the model says: {caption}")
