@@ -1,5 +1,5 @@
 from tkinter import *
-
+from transformers import VisionEncoderDecoderModel
 import torch
 from transformers import GPT2Tokenizer
 from PIL import ImageTk, Image
@@ -16,8 +16,7 @@ transformation = transforms.Compose(
             ])
 tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
 tokenizer.pad_token = tokenizer.unk_token
-model = get_default_model(tokenizer)
-model.load_state_dict(torch.load("./checkpoints/prout_stop.pth"))
+model = VisionEncoderDecoderModel.from_pretrained("./checkpoints/chaozhang_stop")
 model.eval()
 
 def choose_file():
