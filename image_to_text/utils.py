@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from PIL import Image
 import torch
+from transformers import VisionEncoderDecoderModel
 import torch.nn as nn
 
 class AverageMeter(object):
@@ -38,3 +39,23 @@ def plot_sanity_check_image(epoch, ref_image_path, transformation, tokenizer, mo
     caption = tokenizer.decode(out_caption[0])
     # caption = model.generate(img, max_new_tokens=20)
     print(f"After {epoch} epochs, the model says: {caption}")
+
+
+def get_default_model(tokenizer):
+    model = VisionEncoderDecoderModel.from_encoder_decoder_pretrained(
+        "google/vit-base-patch16-224",
+        "gpt2")
+    model.config.decoder_start_token_id = tokenizer.cls_token_id
+    model.config.pad_token_id = tokenizer.pad_token_id
+    # make sure vocab size is set correctly
+    model.config.vocab_size = model.config.decoder.vocab_size
+    # set beam search parameters
+    model.config.eos_token_id = tokenizer.sep_token_id
+    model.config.decoder_start_token_id = tokenizer.bos_token_id
+    model.config.max_length = 128
+    model.config.early_stopping = True
+    model.config.no_repeat_ngram_size = 3
+    model.config.length_penalty = 2.0
+    model.config.num_beams = 4
+    return model
+
