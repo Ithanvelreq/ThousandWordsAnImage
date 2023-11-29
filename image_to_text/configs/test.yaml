@@ -1,12 +1,12 @@
 Train:
   epochs: 20
   batch_size: 8
-  save_rate: 20
+  save_rate: 1
   learning_rate: 0.00001
   path_to_dataset: "./flickr/Images"
   path_to_labels: "./flickr/labels.csv"
   ref_image_path: "./flickr/ref_image.jpg"
 
 network:
-  model: default
+  model: chaozhang
   tokenizer: gpt2

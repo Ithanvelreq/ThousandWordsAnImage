@@ -37,7 +37,6 @@ def plot_sanity_check_image(epoch, ref_image_path, transformation, tokenizer, mo
     img = transformation(img).unsqueeze(0).to(model.device)
     out_caption = model.generate(img, max_new_tokens=50)
     caption = tokenizer.decode(out_caption[0])
-    # caption = model.generate(img, max_new_tokens=20)
     print(f"After {epoch} epochs, the model says: {caption}")
 
 
@@ -58,4 +57,3 @@ def get_default_model(tokenizer):
     model.config.length_penalty = 2.0
     model.config.num_beams = 4
     return model
-
