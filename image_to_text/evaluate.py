@@ -3,27 +3,41 @@ import argparse
 import yaml
 import torch.nn as nn
 import numpy as np
-
 from PIL import Image
+from torchmetrics.text import WordErrorRate
 from torchmetrics.text.rouge import ROUGEScore
 from nltk.translate.bleu_score import sentence_bleu
 from torch.utils.data import DataLoader
 from transformers import GPT2Tokenizer, VisionEncoderDecoderModel
 from Flickr30k import Flick30k
 from train import get_default_model
-
-def evaluate_bleu_rouge(img, target, rouge, tokenizer, model):
-    out_caption = model.generate(img, max_new_tokens=50)
-    caption = tokenizer.decode(out_caption[0]).split()
-    target = tokenizer.decode(target[0]).split()
-
-    rouge_score = rouge(caption, target)["rouge1_fmeasure"]
-    bleu_score = sentence_bleu(target, caption)
-
-    return bleu_score, rouge_score
+from framework.generate import predict_caption, encode_image
 
 
-def main():
+def runCNNRNNModel(img_name):
+    photo = encode_image(img_name).reshape((1, 2048))
+    caption = predict_caption(photo)
+    # print(caption)
+    return caption
+
+
+def evaluate_bleu_rouge(img, target, img_name, rouge, word_error_rate, tokenizer, model, ViT):
+    if ViT:
+        out_caption = model.generate(img, max_new_tokens=50)
+        caption = tokenizer.decode(out_caption[0])
+    else:
+        caption = runCNNRNNModel(img_name)
+    target = tokenizer.decode(target[0]).replace("<|endoftext|>", "")
+    caption = caption.replace("<|endoftext|>", "")
+    
+    rouge_score = rouge(caption.split(), target.split())["rouge1_fmeasure"].item()
+    bleu_score = sentence_bleu(target.split(), caption.split())
+    wer_score = word_error_rate([caption], [target]).item()
+
+    return bleu_score, rouge_score, wer_score
+
+
+def main(is_ViT):
     parser = argparse.ArgumentParser(description='ViT evaluation')
     parser.add_argument('--config', default='./configs/test.yaml')
 
@@ -37,46 +51,54 @@ def main():
 
     tokenizer = GPT2Tokenizer.from_pretrained(args.tokenizer)
     tokenizer.pad_token = tokenizer.unk_token
+    if is_ViT:
+        model_path = "./results/checkpoints/chaozhang_stop"
+        model = VisionEncoderDecoderModel.from_pretrained(model_path)
+    else:
+        model = None
 
-    model_path = "./results/checkpoints/chaozhang_stop"
-    model = VisionEncoderDecoderModel.from_pretrained(model_path)
-
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and model is not None:
         model = model.cuda()
 
-    model.eval()
+    if model is not None: model.eval()
 
     train_dataset = Flick30k('cuda', args.path_to_dataset, args.path_to_labels, tokenizer)
     val_dataset, test_dataset = train_dataset.split_train_val()
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True)
 
-    bleu_score, rouge_score = [], []
+    bleu_score, rouge_score, wer_score = [], [], []
     rouge = ROUGEScore()
+    word_error_rate = WordErrorRate()
 
-    for idx, (data, target) in enumerate(test_dataloader):
+    for idx, (data, target, img_name) in enumerate(test_dataloader):
         if idx % 10 == 0:
             print("Idx", idx)
 
-        if idx % 1000 == 0:
-            return (np.mean(bleu_score), np.mean(rouge_score))
+        if idx == 1000:
+            return (np.mean(bleu_score), np.mean(rouge_score), np.mean(wer_score))
 
         if torch.cuda.is_available():
             data = data.cuda()
             target = target.cuda()
 
-        bleu_score_i, rouge_score_i = evaluate_bleu_rouge(data,
-                                                          target,
-                                                          rouge,
-                                                          test_dataloader.dataset.tokenizer,
-                                                          model)
+        bleu_score_i, rouge_score_i, word_error_rate_score_i = evaluate_bleu_rouge(data,
+                                                                                   target,
+                                                                                   img_name[0],
+                                                                                   rouge,
+                                                                                   word_error_rate,
+                                                                                   test_dataloader.dataset.tokenizer,
+                                                                                   model,
+                                                                                   is_ViT)
         bleu_score.append(bleu_score_i)
         rouge_score.append(rouge_score_i)
+        wer_score.append(word_error_rate_score_i)
 
-    return (np.mean(bleu_score), np.mean(rouge_score))
+    return (np.mean(bleu_score), np.mean(rouge_score), np.mean(wer_score))
 
 
 if __name__ == '__main__':
-    bleu, rouge = main()
+    bleu, rouge, wer = main(is_ViT=False)
     print(f"Bleu Score is : {bleu}")
     print(f"Rouge Score is : {rouge}")
+    print(f"WER Score is : {wer}")
     print("Petit coquing...")

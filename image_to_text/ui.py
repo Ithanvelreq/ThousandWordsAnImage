@@ -45,7 +45,7 @@ def generateCaption(mylabel):
     img = Image.open(file_name).convert("RGB")
     img = transformation(img).unsqueeze(0).to(model.device)
     out_caption = model.generate(img, max_new_tokens=50)
-    caption = tokenizer.decode(out_caption[0])
+    caption = tokenizer.decode(out_caption[0]).replace("<|endoftext|>", "")
     print(caption)
 
     mylabel = mylabel.config(text=caption)

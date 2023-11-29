@@ -14,8 +14,10 @@ from torchvision import io, transforms
 
 class Flick30k(Dataset):
 
-    def __init__(self, dev, path_to_dataset, path_to_labels, tokenizer, img_size=(224, 224), df=None, default_caption=None):
+    def __init__(self, dev, path_to_dataset, path_to_labels, tokenizer, img_size=(224, 224),
+                 df=None, default_caption=None, test_dataset=False):
         self.device = dev
+        self.test_dataset = test_dataset
         self.path_to_dataset = path_to_dataset
         self.max_length = 50
         self.tokenizer = tokenizer
@@ -62,7 +64,10 @@ class Flick30k(Dataset):
             caption = self.tokenizer(self.default_caption, padding='max_length', max_length=self.max_length).input_ids
         if len(caption) > self.max_length:
             caption = caption[:self.max_length]
-        return img, torch.Tensor(caption).long()
+        if self.test_dataset:
+            return img, torch.Tensor(caption).long(), img_path
+        else:
+            return img, torch.Tensor(caption).long()
 
     def split_train_val(self, val_ratio=0.1, test_ratio=0.1):
         val_size = int(len(self) * val_ratio)
@@ -73,7 +78,8 @@ class Flick30k(Dataset):
         self.df = self.df.iloc[test_size+val_size:]
 
         dataset_val = Flick30k(self.device, self.path_to_dataset, self.path_to_dataset, self.tokenizer, df=df_val)
-        dataset_test = Flick30k(self.device, self.path_to_dataset, self.path_to_dataset, self.tokenizer, df=df_test)
+        dataset_test = Flick30k(self.device, self.path_to_dataset, self.path_to_dataset, self.tokenizer,
+                                df=df_test, test_dataset=True)
         return dataset_val, dataset_test
 
 
