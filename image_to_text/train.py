@@ -15,6 +15,10 @@ from Flickr30k import Flick30k
 from torch.utils.data import DataLoader
 from transformers import GPT2Tokenizer
 from utils import AverageMeter, save_plot, DummyModel, plot_sanity_check_image, get_default_model
+from torch.backends import cudnn
+
+
+cudnn.benchmark = True
 
 parser = argparse.ArgumentParser(description='Visual Transformer for Image Captioning training loop')
 parser.add_argument('--config', default='./configs/test.yaml')
@@ -66,9 +70,10 @@ def train(epoch, train_data, model, optimizer):
                    'Loss {loss.val:.4f} ({loss.avg:.4f})\t')
                    .format(epoch, idx, len(train_data),
                            iter_time=iter_time, loss=losses))
+        if idx % 100 == 0:
             plot_sanity_check_image(idx, args.ref_image_path, train_data.dataset.transform,
                                     train_data.dataset.tokenizer, model)
-    losses_list.append([losses.avg.item()])
+    losses_list.append([losses.avg])
 
 
 def validate(epoch, val_data, model):
@@ -86,7 +91,7 @@ def validate(epoch, val_data, model):
             pred_caption = model(pixel_values=data, labels=target)
             loss = pred_caption.loss
 
-        losses.update(loss, val_data.batch_size)
+        losses.update(loss.item(), val_data.batch_size)
         iter_time.update(time.time() - start)
         if idx % 10 == 0:
             print(('Validation: Epoch: [{0}][{1}/{2}]\t'
@@ -94,13 +99,14 @@ def validate(epoch, val_data, model):
                    'Loss {loss.val:.4f} ({loss.avg:.4f})\t')
                   .format(epoch, idx, len(val_data),
                           iter_time=iter_time, loss=losses))
-
-    losses_list[-1].append(losses.avg.item())
+    losses_list[-1].append(losses.avg)
 
 
 def main():
     if not os.path.exists('./results'):
         os.makedirs('./results')
+    if not os.path.exists('./results/checkpoints'):
+        os.makedirs('./results/checkpoints')
     global args
     args = parser.parse_args()
     with open(args.config) as f:
@@ -139,18 +145,17 @@ def main():
             save_plot("./results/training_curve.png", losses_list)
 
             if epoch % args.save_rate == 0:
-                if not os.path.exists('./results/checkpoints'):
-                    os.makedirs('./results/checkpoints')
-                torch.save(model.state_dict(), './results/checkpoints/' +
-                           args.model.lower() + '_' + str(epoch) + '.pth')
+                model.save_pretrained('./results/checkpoints/' + args.model.lower() + '_' + str(epoch))
                 print("Model saved successfully")
         # test(test_dataloader, model, criterion)
     except KeyboardInterrupt:
         save_plot("./results/training_curve.png", losses_list)
-        if not os.path.exists('./checkpoints'):
-            os.makedirs('./checkpoints')
-        torch.save(model.state_dict(), './checkpoints/' +
-                   args.model.lower() + '_stop.pth')
+        model.save_pretrained('./results/checkpoints/' + args.model.lower() + '_stop')
+        print("Model saved successfully. Exiting gracefully...")
+    except Exception as e:
+        print(e)
+        save_plot("./results/training_curve.png", losses_list)
+        model.save_pretrained('./results/checkpoints/' + args.model.lower() + '_stop')
         print("Model saved successfully")
 
 

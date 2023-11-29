@@ -135,6 +135,7 @@ class GPT2Decoder(nn.Module):
 
     def forward(self, encoder_output, caption):
         logits = self.model(input_ids=caption, encoder_hidden_states=encoder_output).logits
+        logits = torch.nn.functional.softmax(logits, dim=-1)
         loss = None
 
         if caption is not None:
