@@ -4,7 +4,7 @@ import yaml
 import torch.nn as nn
 import numpy as np
 from PIL import Image
-from torchmetrics.text import WordErrorRate
+from torchmetrics.text import WordErrorRate, BLEUScore
 from torchmetrics.text.rouge import ROUGEScore
 from nltk.translate.bleu_score import sentence_bleu
 from torch.utils.data import DataLoader
@@ -21,7 +21,7 @@ def runCNNRNNModel(img_name):
     return caption
 
 
-def evaluate_bleu_rouge(img, target, img_name, rouge, word_error_rate, tokenizer, model, ViT):
+def evaluate_bleu_rouge(img, target, img_name, rouge, bleu, word_error_rate, tokenizer, model, ViT):
     if ViT:
         out_caption = model.generate(img, max_new_tokens=50)
         caption = tokenizer.decode(out_caption[0])
@@ -31,7 +31,7 @@ def evaluate_bleu_rouge(img, target, img_name, rouge, word_error_rate, tokenizer
     caption = caption.replace("<|endoftext|>", "")
     
     rouge_score = rouge(caption.split(), target.split())["rouge1_fmeasure"].item()
-    bleu_score = sentence_bleu(target.split(), caption.split())
+    bleu_score = bleu([target], [caption])
     wer_score = word_error_rate([caption], [target]).item()
 
     return bleu_score, rouge_score, wer_score
@@ -68,13 +68,14 @@ def main(is_ViT):
 
     bleu_score, rouge_score, wer_score = [], [], []
     rouge = ROUGEScore()
+    bleu = BLEUScore()
     word_error_rate = WordErrorRate()
 
     for idx, (data, target, img_name) in enumerate(test_dataloader):
         if idx % 10 == 0:
             print("Idx", idx)
 
-        if idx == 1000:
+        if idx == 500:
             return (np.mean(bleu_score), np.mean(rouge_score), np.mean(wer_score))
 
         if torch.cuda.is_available():
@@ -85,6 +86,7 @@ def main(is_ViT):
                                                                                    target,
                                                                                    img_name[0],
                                                                                    rouge,
+                                                                                   bleu,
                                                                                    word_error_rate,
                                                                                    test_dataloader.dataset.tokenizer,
                                                                                    model,
