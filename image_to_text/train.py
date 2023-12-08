@@ -70,9 +70,8 @@ def train(epoch, train_data, model, optimizer):
                    'Loss {loss.val:.4f} ({loss.avg:.4f})\t')
                    .format(epoch, idx, len(train_data),
                            iter_time=iter_time, loss=losses))
-        if idx % 100 == 0:
-            plot_sanity_check_image(idx, args.ref_image_path, train_data.dataset.transform,
-                                    train_data.dataset.tokenizer, model)
+        plot_sanity_check_image(idx, args.ref_image_path, train_data.dataset.transform,
+                                train_data.dataset.tokenizer, model)
     losses_list.append([losses.avg])
 
 
